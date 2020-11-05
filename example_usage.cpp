@@ -1,14 +1,9 @@
-# lyn::threads
-
-Helper classes and functions for threaded programs.
-
-#### ping-pong example
-
-```cpp
 #include "lyn_threads.hpp"
 
 #include <iostream>
 #include <thread>
+
+// ping-pong example
 
 std::mutex mtx;
 std::condition_variable cv;
@@ -43,4 +38,3 @@ int main() {
         return ++state;
     });
 }
-```
