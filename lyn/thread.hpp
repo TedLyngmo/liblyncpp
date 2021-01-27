@@ -3,6 +3,7 @@
 #include <type_traits>
 
 namespace lyn {
+namespace thread {
 // ----------------------------------------------------------------------------------
 struct notifier_of_one {
     ~notifier_of_one() { cv.notify_one(); }
@@ -33,4 +34,5 @@ decltype(auto) wait_for_then(std::mutex& mtx, std::condition_variable& cv, Cond 
     return func();
 }
 // ----------------------------------------------------------------------------------
+} // namespace thread
 } // namespace lyn
