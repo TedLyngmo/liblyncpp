@@ -3,7 +3,7 @@ EXE := example_usage
 CVER := -std=c11
 CXXVER := -std=c++20
 
-OPTS := -Wall -Wextra -pedantic -pedantic-errors
+OPTS := -I../include -Wall -Wextra -pedantic -pedantic-errors
 LIBS := -pthread
 
 CPPHEADERS = $(wildcard *.hpp)
