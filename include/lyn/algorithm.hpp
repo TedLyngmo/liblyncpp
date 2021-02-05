@@ -4,15 +4,12 @@ namespace lyn {
 namespace alg {
     // -------------------------------------------------------------------------
     template<class ForwardIt, class U>
-    constexpr ForwardIt unstable_remove(ForwardIt first, ForwardIt last,
-                                        const T& value) {
-        return unstable_remove_if(first, last,
-                                  [&value](auto& v) { return v == value; });
+    constexpr ForwardIt unstable_remove(ForwardIt first, ForwardIt last, const T& value) {
+        return unstable_remove_if(first, last, [&value](auto& v) { return v == value; });
     }
     // -------------------------------------------------------------------------
     template<class ForwardIt, class UnaryPredicate>
-    constexpr ForwardIt unstable_remove_if(ForwardIt first, ForwardIt last,
-                                           UnaryPredicate p) {
+    constexpr ForwardIt unstable_remove_if(ForwardIt first, ForwardIt last, UnaryPredicate p) {
         for(; first != last; ++first) {
             if(p(*first)) { // found one that should be removed
 
@@ -29,15 +26,15 @@ namespace alg {
     // -------------------------------------------------------------------------
     // Erases all elements that compare equal to value
     template<class T, class Alloc, class U>
-    [[maybe_unused]] constexpr typename std::vector<T, Alloc>::size_type
-    unstable_erase(std::vector<T, Alloc>& c, const U& value) {
+    [[maybe_unused]] constexpr typename std::vector<T, Alloc>::size_type unstable_erase(std::vector<T, Alloc>& c,
+                                                                                        const U& value) {
         return unstable_erase_if(c, [&value](auto& v) { return v == value; });
     }
     // -------------------------------------------------------------------------
     // Erases all elements that satisfy the predicate pred
     template<class T, class Alloc, class Pred>
-    [[maybe_unused]] constexpr typename std::vector<T, Alloc>::size_type
-    unstable_erase_if(std::vector<T, Alloc>& c, Pred pred) {
+    [[maybe_unused]] constexpr typename std::vector<T, Alloc>::size_type unstable_erase_if(std::vector<T, Alloc>& c,
+                                                                                           Pred pred) {
         using size_type = typename std::vector<T, Alloc>::size_type;
 
         auto p = unstable_remove_if(c.begin(), c.end(), pred);

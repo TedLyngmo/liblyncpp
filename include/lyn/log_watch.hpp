@@ -2,7 +2,7 @@
 
 /*
  * Adapted from https://stackoverflow.com/a/58866761/7582247
-*/
+ */
 
 #include <chrono>
 #include <cstdint>
@@ -12,16 +12,13 @@
 
 namespace lyn {
 
-// A C++11 constexpr function template for counting decimals needed for
-// selected precision.
-template<std::size_t V, std::size_t C = 0,
-         typename std::enable_if<(V < 10), int>::type = 0>
+// A C++11 constexpr function template for counting decimals needed for selected precision.
+template<std::size_t V, std::size_t C = 0, typename std::enable_if<(V < 10), int>::type = 0>
 constexpr std::size_t log10ish() {
     return C;
 }
 
-template<std::size_t V, std::size_t C = 0,
-         typename std::enable_if<(V >= 10), int>::type = 0>
+template<std::size_t V, std::size_t C = 0, typename std::enable_if<(V >= 10), int>::type = 0>
 constexpr std::size_t log10ish() {
     return log10ish<V / 10, C + 1>();
 }
@@ -29,8 +26,7 @@ constexpr std::size_t log10ish() {
 using unanoseconds = std::chrono::duration<std::uint64_t, std::nano>;
 
 // A class to support using different precisions, chrono clocks and formats
-template<class Precision = std::chrono::seconds,
-         class Clock = std::chrono::system_clock>
+template<class Precision = std::chrono::seconds, class Clock = std::chrono::system_clock>
 class log_watch {
 public:
     // some convenience typedefs and "decimal_width" for sub second precisions
@@ -40,16 +36,16 @@ public:
     using time_point = std::chrono::time_point<Clock>;
     static constexpr auto decimal_width = log10ish<ratio_type{}.den>();
 
-    static_assert(ratio_type{}.num <= ratio_type{}.den,
-                  "Only second or sub second precision supported");
+    static_assert(ratio_type{}.num <= ratio_type{}.den, "Only second or sub second precision supported");
     static_assert(ratio_type{}.num == 1, "Unsupported precision parameter");
 
     // default format: "%Y-%m-%dT%H:%M:%S"
-    log_watch(const std::string& format = "%FT%T") :
-        m_format(format)
-    {}
+    log_watch(const std::string& format = "%FT%T") : m_format(format) {}
 
-    inline log_watch& operator()(time_point tp) { m_tp = std::move(tp); return *this; }
+    inline log_watch& operator()(time_point tp) {
+        m_tp = std::move(tp);
+        return *this;
+    }
     inline log_watch& operator()(const Precision& p) { return (*this)(time_point(p)); }
 
     template<class P, class C>
@@ -61,8 +57,7 @@ private:
 };
 
 template<class Precision, class Clock>
-std::ostream& operator<<(std::ostream& os,
-                         const log_watch<Precision, Clock>& lw) {
+std::ostream& operator<<(std::ostream& os, const log_watch<Precision, Clock>& lw) {
     std::ostringstream oss;
 
     // extract std::time_t from time_point
@@ -77,8 +72,7 @@ std::ostream& operator<<(std::ostream& os,
         auto dur = lw.m_tp.time_since_epoch();
 
         // extract the sub second part from the duration since epoch
-        auto subsec =
-            std::chrono::duration_cast<Precision>(dur) % std::chrono::seconds{1};
+        auto subsec = std::chrono::duration_cast<Precision>(dur) % std::chrono::seconds{1};
 
         // output the sub second part
         oss << std::setfill('0') << std::setw(lw.decimal_width) << subsec.count();
@@ -88,4 +82,3 @@ std::ostream& operator<<(std::ostream& os,
 }
 
 } // namespace lyn
-
