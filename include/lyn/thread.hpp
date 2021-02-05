@@ -17,8 +17,9 @@ namespace thread {
         std::condition_variable& cv;
     };
     // -------------------------------------------------------------------------
-    template<class NotifierType, class Func,
-             std::enable_if_t<std::is_invocable_v<Func>, int> = 0>
+    template<class NotifierType, class Func
+        // ,std::enable_if_t<std::is_invocable_v<Func>, int> = 0 // C++17
+    >
     decltype(auto) guard_then_notify_using(std::mutex& mtx,
                                            std::condition_variable& cv,
                                            Func func) {
@@ -27,10 +28,10 @@ namespace thread {
         return func();
     }
     // -------------------------------------------------------------------------
-    template<
-        class Cond, class Func,
-        std::enable_if_t<std::is_invocable_v<Cond> && std::is_invocable_v<Func>,
-                         int> = 0>
+    template<class Cond, class Func
+        //,std::enable_if_t<std::is_invocable_v<Cond> &&
+        //                  std::is_invocable_v<Func>, int> = 0 // C++17
+    >
     decltype(auto) wait_for_then(std::mutex& mtx, std::condition_variable& cv,
                                  Cond cond, Func func) {
         std::unique_lock<std::mutex> ul(mtx);

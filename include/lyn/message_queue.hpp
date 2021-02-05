@@ -1,5 +1,7 @@
 #pragma once
 
+#include "lyn/thread.hpp"
+
 #include <atomic>
 #include <condition_variable>
 #include <mutex>
@@ -9,22 +11,23 @@
 #include <utility>
 
 namespace lyn {
-struct MessageQueueException : public std::runtime_error {
+namespace mq {
+struct message_queue_exception : public std::runtime_error {
     using std::runtime_error::runtime_error;
 };
 
 template<class C>
-class MessageQueue {
+class message_queue {
 public:
     using value_type = C;
     using queue_t = std::queue<C>;
 
-    MessageQueue() : m_cv(), m_mtx(), m_queue(), m_alive(true) {}
-    MessageQueue(const MessageQueue&) = delete; // no copies
-    MessageQueue(MessageQueue&& rhs) = default;
-    MessageQueue& operator=(const MessageQueue&) = delete; // no copies
-    MessageQueue& operator=(MessageQueue&& rhs) = default;
-    virtual ~MessageQueue() { shutdown(); }
+    message_queue() : m_cv(), m_mtx(), m_queue(), m_alive(true) {}
+    message_queue(const message_queue&) = delete; // no copies
+    message_queue(message_queue&& rhs) = default;
+    message_queue& operator=(const message_queue&) = delete; // no copies
+    message_queue& operator=(message_queue&& rhs) = default;
+    virtual ~message_queue() { shutdown(); }
 
     inline typename queue_t::size_type size() const { return m_queue.size(); }
     void shutdown() {
@@ -34,40 +37,37 @@ public:
         }
     }
     void push(const C& msg) {
-        if(!m_alive) throw MessageQueueException(std::string("MessageQueue::push shutdown"));
+        if(!m_alive) throw message_queue_exception(std::string("message_queue::push shutdown"));
+        lyn::thread::guard_then_notify_using<lyn::thread::notifier_of_one>(m_mtx, m_cv, [&]
         {
-            std::lock_guard<std::mutex> guard(m_mtx);
             m_queue.push(msg);
-        }
-        m_cv.notify_one();
+        });
     }
     void push(C&& msg) {
-        if(!m_alive) throw MessageQueueException(std::string("MessageQueue::push shutdown"));
+        if(!m_alive) throw message_queue_exception(std::string("message_queue::push shutdown"));
+        lyn::thread::guard_then_notify_using<lyn::thread::notifier_of_one>(m_mtx, m_cv, [&]
         {
-            std::lock_guard<std::mutex> guard(m_mtx);
             m_queue.push(std::move(msg));
-        }
-        m_cv.notify_one();
+        });
     }
     template<class... Args>
     void emplace(Args&&... args) {
-        if(!m_alive) throw MessageQueueException(std::string("MessageQueue::emplace shutdown"));
+        if(!m_alive) throw message_queue_exception(std::string("message_queue::emplace shutdown"));
+        lyn::thread::guard_then_notify_using<lyn::thread::notifier_of_one>(m_mtx, m_cv, [&]
         {
-            std::lock_guard<std::mutex> guard(m_mtx);
             m_queue.emplace(std::forward<Args>(args)...);
-        }
-        m_cv.notify_one();
+        });
     }
     auto pop() { // blocking pop
         std::unique_lock<std::mutex> lock(m_mtx);
         while(m_alive && m_queue.empty()) m_cv.wait(lock);
-        if(!m_alive) throw MessageQueueException(std::string("MessageQueue::pop shutdown"));
+        if(!m_alive) throw message_queue_exception(std::string("message_queue::pop shutdown"));
         auto msg = std::move(m_queue.front());
         m_queue.pop();
         return msg;
     }
     bool pop(C& fill) { // polling pop
-        if(!m_alive) throw MessageQueueException(std::string("MessageQueue::pop shutdown"));
+        if(!m_alive) throw message_queue_exception(std::string("message_queue::pop shutdown"));
         std::lock_guard<std::mutex> guard(m_mtx);
         if(m_queue.empty()) return false;
         fill = std::move(m_queue.front());
@@ -78,12 +78,12 @@ public:
         queue_t replacement;
         std::unique_lock<std::mutex> lock(m_mtx);
         while(m_alive && m_queue.empty()) m_cv.wait(lock);
-        if(!m_alive) throw MessageQueueException(std::string("MessageQueue::pop_all shutdown"));
+        if(!m_alive) throw message_queue_exception(std::string("message_queue::pop_all shutdown"));
         replacement.swap(m_queue);
         return replacement;
     }
     bool pop_all(queue_t& fill) { // getting the whole queue, polling
-        if(!m_alive) throw MessageQueueException(std::string("MessageQueue::pop_all shutdown"));
+        if(!m_alive) throw message_queue_exception(std::string("message_queue::pop_all shutdown"));
         std::lock_guard<std::mutex> guard(m_mtx);
         if(m_queue.empty()) return false;
         fill.swap(m_queue);
@@ -96,4 +96,5 @@ private:
     queue_t m_queue;
     std::atomic<bool> m_alive;
 };
+} // namespace mq
 } // namespace lyn
