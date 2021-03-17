@@ -35,11 +35,16 @@ namespace alg {
     template<class T, class Alloc, class Pred>
     [[maybe_unused]] constexpr typename std::vector<T, Alloc>::size_type unstable_erase_if(std::vector<T, Alloc>& c,
                                                                                            Pred pred) {
+        using value_type = typename std::vector<T, Alloc>::value_type;
         using size_type = typename std::vector<T, Alloc>::size_type;
 
         auto p = unstable_remove_if(c.begin(), c.end(), pred);
         auto count = static_cast<size_type>(std::distance(p, c.end()));
-        c.resize(c.size() - count);
+        if constexpr(std::is_default_construcible_v<value_type>) {
+            c.resize(c.size() - count);
+        } else {
+            c.erase(p, c.end());
+        }
 
         return count;
     }
