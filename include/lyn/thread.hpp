@@ -6,6 +6,12 @@
 
 namespace lyn {
 namespace thread {
+
+    // -------------------------------------------------------------------------
+    struct cv_mtx_pair {
+        std::condition_variable cv;
+        std::mutex mtx;
+    };
     // -------------------------------------------------------------------------
     struct notifier_of_one {
         ~notifier_of_one() { cv.notify_one(); }
@@ -17,6 +23,13 @@ namespace thread {
         std::condition_variable& cv;
     };
     // -------------------------------------------------------------------------
+    template<class NotifierType, class Func>
+    decltype(auto) guard_then_notify_using(cv_mtx_pair& cvmtx, Func func) {
+        NotifierType notifier{cvmtx.cv};
+        std::lock_guard<std::mutex> lock(cvmtx.mtx);
+        return func();
+    }
+
     template<class NotifierType, class Func
              // ,std::enable_if_t<std::is_invocable_v<Func>, int> = 0 // C++17
              >
@@ -26,6 +39,13 @@ namespace thread {
         return func();
     }
     // -------------------------------------------------------------------------
+    template<class Cond, class Func>
+    decltype(auto) wait_for_then(cv_mtx_pair& cvmtx, Cond cond, Func func) {
+        std::unique_lock<std::mutex> ul(cvmtx.mtx);
+        cvmtx.cv.wait(ul, cond);
+        return func();
+    }
+
     template<class Cond, class Func
              //,std::enable_if_t<std::is_invocable_v<Cond> &&
              //                  std::is_invocable_v<Func>, int> = 0 // C++17
