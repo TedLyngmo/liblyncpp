@@ -12,11 +12,11 @@ void a_thread() {
     // waits for ev to be signaled
     // runs the lambda
     // sets ev to non-signaled
-    ev.wait_for_signal_then([]{
+    ev.wait_then([]{
         std::cout << "second: " << ++state << '\n';
     });
 
-    ev.wait_for_signal_then([]{
+    ev.wait_then([]{
         std::cout << "fourth: " << ++state << '\n';
     });
 

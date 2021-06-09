@@ -1,5 +1,6 @@
 #pragma once
 
+#include <chrono>
 #include <condition_variable>
 #include <mutex>
 #include <utility>
@@ -55,18 +56,18 @@ namespace thread {
     public:
         template<class Func = void(*)()>
         decltype(auto) do_then_set(Func&& func = []{}) {
-            notifier_of_one notifier{m_cvmtx.cv};
+            notifier_of_all notifier{m_cvmtx.cv};
             std::lock_guard<std::mutex> lock(m_cvmtx.mtx);
             event_state_setter evs{*this, true};
             return func();
         }
 
         template<class Func = void(*)()>
-        decltype(auto) wait_for_signal_then(Func&& func = []{}) {
-            notifier_of_one notifier{m_cvmtx.cv};
+        decltype(auto) wait_then(Func&& func = []{}) {
+            notifier_of_all notifier{m_cvmtx.cv};
             std::unique_lock<std::mutex> lock(m_cvmtx.mtx);
             while(not m_state) m_cvmtx.cv.wait(lock);
-            if(AutoReset) {
+            if(AutoReset) { // if constexpr in C++17
                 event_state_setter evs{*this, false};
                 return func();
             }
@@ -78,6 +79,27 @@ namespace thread {
             std::unique_lock<std::mutex> lock(m_cvmtx.mtx);
             while(m_state) m_cvmtx.cv.wait(lock);
             return func();
+        }
+
+        template<class Clock, class Duration, class Func = void(*)()>
+        bool wait_until_then_if(const std::chrono::time_point<Clock, Duration>& timeout_time, Func&& func = []{}) {
+            notifier_of_all notifier{m_cvmtx.cv};
+            std::unique_lock<std::mutex> lock(m_cvmtx.mtx);
+            if(m_cvmtx.cv.wait_until(lock, timeout_time, [this]{ return m_state; })) {
+                if(AutoReset) { // if constexpr in C++17
+                    event_state_setter evs{*this, false};
+                    func();
+                    return true;
+                }
+                func();
+                return true;
+            }
+            return false;
+        }
+
+        template<class Rep, class Period, class Func = void(*)()>
+        bool wait_for_then_if(const std::chrono::duration<Rep, Period>& rel_time, Func&& func = []{}) {
+            return wait_until_then_if(std::chrono::steady_clock::now() + rel_time, std::forward<Func>(func));
         }
 
     private:
@@ -92,7 +114,6 @@ namespace thread {
         cv_mtx_pair m_cvmtx;
         bool m_state = false;
     };
-
 
 } // namespace thread
 } // namespace lyn
