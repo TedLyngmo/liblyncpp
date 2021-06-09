@@ -1,24 +1,25 @@
-EXE := example_usage
+CPPS = $(wildcard example*.cpp)
+OBJS = $(CPPS:.cpp=.o)
+EXES = $(CPPS:.cpp=)
 
 CVER := -std=c11
-CXXVER := -std=c++20
+CXXVER := -std=c++14
 
-OPTS := -I../include -Wall -Wextra -pedantic -pedantic-errors
-LIBS := -pthread
+OPTS := -O3 -I../include -Wall -Wextra -pedantic -pedantic-errors
 
 CPPHEADERS = $(wildcard *.hpp)
 CHEADERS = $(wildcard *.h)
 
-all : $(EXE)
+all : $(EXES)
 
-$(EXE) : $(EXE).o
-	$(CXX) $(CXXVER) $(OPTS) -o $@ $< $(LIBS)
+%: %.o
+	$(CXX) $(CXXVER) $(OPTS) -o $@ $< -pthread
 
-%.o : %.cpp $(CPPHEADERS) Makefile
-	$(CXX) $(CXXVER) $(OPTS) -c -o $@ $<
+$(OBJS): %.o : %.cpp $(CPPHEADERS) Makefile
+	$(CXX) $(CXXVER) $(OPTS) -c -o $@ $< -pthread
 
 format:
 	clang-format -i *.hpp *.cpp
 
 clean:
-	rm -f $(EXE) *.o
+	rm -f $(EXES) $(OBJS)

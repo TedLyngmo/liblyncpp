@@ -1,6 +1,13 @@
 # Prerequisites
 *.d
 
+# Executables
+*.exe
+*.out
+*.app
+example*
+!example*.*
+
 # Compiled Object files
 *.slo
 *.lo
@@ -28,9 +35,3 @@
 
 # Temporary files
 *.swp
-
-# Executables
-*.exe
-*.out
-*.app
-example_usage

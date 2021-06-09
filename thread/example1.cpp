@@ -23,7 +23,7 @@ void a_thread() {
 }
 
 int main() {
-    auto th = std::jthread(a_thread);
+    auto th = std::thread(a_thread);
 
     lyn::thread::guard_then_notify_using<lyn::thread::notifier_of_one>(cvmtx, [] {
         std::cout << "main: ping\n";
@@ -36,4 +36,6 @@ int main() {
         std::cout << "main: pong\n";
         return ++state;
     });
+
+    th.join();
 }
