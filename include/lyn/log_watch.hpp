@@ -1,6 +1,12 @@
 #pragma once
 
 /*
+ * Copied from:
+ * https://github.com/TedLyngmo/liblyncpp/blob/main/include/lyn/thread.hpp
+ * "This is free and unencumbered software released into the public domain."
+*/
+
+/*
  * Adapted from https://stackoverflow.com/a/58866761/7582247
  */
 

@@ -13,18 +13,18 @@ void a_thread() {
     // waits for ev to be signaled
     // runs the lambda
     // sets ev to non-signaled
-    bool executed = ev.wait_for_then_if(std::chrono::milliseconds(5), []{
+    bool executed = ev.wait_for(std::chrono::milliseconds(5), []{
         ++state;
-        std::cout << "second true\n";
+        std::cout << "second TRUE\n";
     });
 
     if(not executed) {
-        ev.wait_then([]{
-            std::cout << "second false\n";
+        ev.wait([]{
+            std::cout << "second FALSE\n";
         });
     }
 
-    ev.wait_then([]{
+    ev.wait([]{
         std::cout << "fourth: " << ++state << '\n';
     });
 
@@ -40,15 +40,15 @@ int main() {
         // sets ev to signaled
         std::this_thread::sleep_for(std::chrono::milliseconds(5));
 
-        ev.do_then_set([]{
+        ev.set([]{
             std::cout << "first " << ++state << '\n';
         });
 
-        ev.wait_for_reset_then([]{
+        ev.wait_for_reset([]{
             std::cout << "reset\n";
         });
 
-        ev.do_then_set([]{
+        ev.set([]{
             std::cout << "third " << ++state << '\n';
         });
         th.join();
