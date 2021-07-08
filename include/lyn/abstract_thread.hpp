@@ -11,10 +11,9 @@ namespace thread {
     public:
         abstract_thread(const abstract_thread&) = delete;            // no copies
         abstract_thread& operator=(const abstract_thread&) = delete; // no copies
-        virtual ~abstract_thread() {
-            // make sure we don't destroy a running thread object
-            terminate_and_join();
-        }
+
+        // Must be implemented and must call terminate_and_join() in the most derived class
+        virtual ~abstract_thread() = default;
 
         virtual void start() {
             if(joinable())
