@@ -35,15 +35,18 @@ For more information, please refer to <https://unlicense.org>
 #include <functional>
 #include <mutex>
 #include <queue>
+#include <utility>
 
 namespace lyn {
 namespace mq {
-template<class EventType = std::function<void()>, class Clock = std::chrono::steady_clock,
+template<class EventType = std::function<void()>,
+         class Clock = std::chrono::steady_clock,
          class TimePoint = std::chrono::time_point<Clock>>
 class timer_queue {
 public:
     using event_type = EventType;
     using clock_type = Clock;
+    using duration = typename Clock::duration;
     using time_point = TimePoint;
 
 private:
@@ -56,6 +59,13 @@ private:
 public:
     using queue_type = std::priority_queue<TimedEvent>;
 
+    explicit timer_queue(duration now_delay) : m_now_delay(std::move(now_delay)) {}
+
+    timer_queue() : timer_queue(std::chrono::nanoseconds(0)) {}
+    timer_queue(const timer_queue&) = delete;
+    timer_queue(timer_queue&&) = delete;
+    timer_queue& operator=(const timer_queue&) = delete;
+    timer_queue& operator=(timer_queue&&) = delete;
     ~timer_queue() { shutdown(); }
 
     void shutdown() {
@@ -63,13 +73,15 @@ public:
         m_cv.notify_all();
     }
 
-    // add a new Event to the queue
+    bool is_open() const { return !m_shutdown; }
+    bool operator!() const { return m_shutdown; }
+    explicit operator bool() const { return !m_shutdown; }
+
     template<class... Args>
-    void emplace_do_now(Args&&... args) {
+    void emplace_do_in(duration dur, Args&&... args) {
         std::lock_guard<std::mutex> lock(m_mutex);
 
-        m_queue.emplace(TimedEvent{m_seq, std::forward<Args>(args)...});
-        m_seq += std::chrono::nanoseconds(1);
+        m_queue.emplace(TimedEvent{clock_type::now() + dur, std::forward<Args>(args)...});
         m_cv.notify_all();
     }
 
@@ -78,7 +90,18 @@ public:
         std::lock_guard<std::mutex> lock(m_mutex);
 
         m_queue.emplace(TimedEvent{std::forward<TP>(tp), std::forward<Args>(args)...});
+        m_seq += std::chrono::nanoseconds(1);
         m_cv.notify_all();
+    }
+
+    template<class... Args>
+    void emplace_do(Args&&... args) {
+        emplace_do_in(m_now_delay, std::forward<Args>(args)...);
+    }
+
+    template<class... Args>
+    void emplace_do_urgently(Args&&... args) {
+        emplace_do_at(m_seq, std::forward<Args>(args)...);
     }
 
     bool wait_pop(event_type& ev) {
@@ -105,6 +128,7 @@ private:
     mutable std::mutex m_mutex{};
     std::condition_variable m_cv{};
     std::atomic<bool> m_shutdown{};
+    duration m_now_delay;
     // m_seq is used for to make sure events are executed in the order they are put in the queue which can be used to
     // extend the queue with adding a bunch of elements at the same time and to guarantee them to be extracted together
     // in the exact order they were put in.
