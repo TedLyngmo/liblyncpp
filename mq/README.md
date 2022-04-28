@@ -20,7 +20,7 @@ A timer queue provides constant time lookup of the first event to timeout, at th
 |-:|:-|
 | **EventType** | The type of events to store in the queue. `std::function<void()>` by default. |
 |     **Clock** | The clock type used to keep time. `std::chrono::steady_clock` by default.     |
-| **TimePoint** | `std::chrono::time_point<Clock>>`                                             |
+| **TimePoint** | `std::chrono::time_point<Clock>`                                              |
 
 |Member types| Definitions |
 |-:|:-|
@@ -28,7 +28,7 @@ A timer queue provides constant time lookup of the first event to timeout, at th
 | `clock_type` | Clock                             |
 | `duration`   | Clock::duration                   |
 | `time_point` | TimePoint                         |
-| `queue_type` | `std::priority_queue<TimedEvent>` |
+| `queue_type` | _unspecified_ - Has a member function `bool pop(event_type& ev)` - see `wait_pop_all` |
 
 ---
 
@@ -42,7 +42,10 @@ A timer queue provides constant time lookup of the first event to timeout, at th
 |`template<class TP, class... Args>`<br>`void emplace_do_at(TP&& tp, Args&&... args)` | create an event in-place that is due at at the specified `time_point` and sorts<br>the underlying container, placing the event in `time_point` order |
 |`template<class... Args>`<br>`void emplace_do_in(duration dur, Args&&... args)` | create an event in-place that is due after the duration `dur` and sorts the<br>underlying container, placing the event in `time_point` order |
 |`bool wait_pop(event_type& ev)` | wait until an event is due and populates `ev`. Returns `true` if an event was<br>successfully extracted or `false` if the queue was shutdown. |
-| `void shutdown()` | shutdown queue |
+|`bool wait_pop_all(queue_type& in_out)` | wait until an event is due and extracts all events that are due.<br>Returns `true` unless the queue was shutdown in which case it returns `false`.|
+| `void shutdown()` | shutdown the queue, leaving unprocessed events in the queue |
+| `void clear()` | removes unprocessed events from the queue |
+| `void restart()` | restarts the queue with unprocessed events intact |
 | `bool operator!() const` | returns `true` if the `shutdown()` has been called, `false` otherwise |
 | `bool is_open() const` | returns `true` if `shutdown()` has _not_ been called, `false`otherwise |
 | `explicit operator bool() const` | returns the same as `is_open()` |

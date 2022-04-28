@@ -36,6 +36,7 @@ For more information, please refer to <https://unlicense.org>
 #include <mutex>
 #include <queue>
 #include <utility>
+#include <vector>
 
 namespace lyn {
 namespace mq {
@@ -57,7 +58,16 @@ private:
     };
 
 public:
-    using queue_type = std::priority_queue<TimedEvent>;
+    struct queue_type : std::priority_queue<TimedEvent> {
+        using std::priority_queue<TimedEvent>::pop;
+
+        bool pop(event_type& ev) {
+            if(this->empty()) return false;
+            ev = std::move(this->top().m_event); // extract event
+            this->pop();
+            return true;
+        }
+    };
 
     explicit timer_queue(duration now_delay) : m_now_delay(std::move(now_delay)) {}
 
@@ -71,6 +81,13 @@ public:
     void shutdown() {
         m_shutdown = true;
         m_cv.notify_all();
+    }
+    void clear() {
+        std::lock_guard<std::mutex> lock(m_mutex);
+        m_queue = queue_type{};
+    }
+    void restart() {
+        m_shutdown = false;
     }
 
     bool is_open() const { return !m_shutdown; }
@@ -122,6 +139,30 @@ public:
 
         return true;
     }
+
+    bool wait_pop_all(queue_type& in_out) {
+        in_out = queue_type{};
+        std::unique_lock<std::mutex> lock(m_mutex);
+
+        while(not m_shutdown && (m_queue.empty() || clock_type::now() < m_queue.top().StartTime)) {
+            if(m_queue.empty()) {
+                m_cv.wait(lock);
+            } else {
+                auto st = m_queue.top().StartTime;
+                m_cv.wait_until(lock, st);
+            }
+        }
+        if(m_shutdown) return false;
+
+        auto now = clock_type::now();
+        while(!m_queue.empty() && now >= m_queue.top().StartTime) {
+            in_out.emplace(std::move(m_queue.top()));
+            m_queue.pop();
+        }
+
+        return true;
+    }
+
 
 private:
     queue_type m_queue{};
