@@ -3,7 +3,7 @@ OBJS = $(CPPS:.cpp=.o)
 EXES = $(CPPS:.cpp=)
 
 CVER := -std=c11
-CXXVER := -std=c++14
+CXXVER := -std=c++17
 
 OPTS := -O3 -I../include -Wall -Wextra -pedantic -pedantic-errors
 
