@@ -146,7 +146,7 @@ namespace mq {
         bool wait_pop(event_type& ev) {
             std::unique_lock<std::mutex> lock(m_mutex);
 
-            while(not m_shutdown && (m_queue.empty() || clock_type::now() < m_queue.top().StartTime)) {
+            while((m_queue.empty() || clock_type::now() < m_queue.top().StartTime) && not m_shutdown) {
                 if(m_queue.empty()) {
                     m_cv.wait(lock);
                 } else {
@@ -163,10 +163,10 @@ namespace mq {
         }
 
         bool wait_pop_all(queue_type& in_out) {
-            in_out = queue_type{};
+            in_out = queue_type{}; // make sure it's empty
             std::unique_lock<std::mutex> lock(m_mutex);
 
-            while(not m_shutdown && (m_queue.empty() || clock_type::now() < m_queue.top().StartTime)) {
+            while((m_queue.empty() || clock_type::now() < m_queue.top().StartTime) && not m_shutdown) {
                 if(m_queue.empty()) {
                     m_cv.wait(lock);
                 } else {
@@ -181,6 +181,37 @@ namespace mq {
                 in_out.emplace(std::move(m_queue.top()));
                 m_queue.pop();
             }
+
+            return true;
+        }
+
+    protected:
+        // These methods violate the timing aspect and extracts queued events including those that expires in the
+        // future. One possible use-case is when writing tests that don't care about the timing.
+        bool wait_pop_future(event_type& ev) {
+            std::unique_lock<std::mutex> lock(m_mutex);
+
+            while(m_queue.empty() && not m_shutdown) {
+                m_cv.wait(lock);
+            }
+            if(m_shutdown) return false; // time to quit
+
+            ev = std::move(m_queue.top().m_event); // extract event
+            m_queue.pop();
+
+            return true;
+        }
+
+        bool wait_pop_all_future(queue_type& in_out) {
+            in_out = queue_type{}; // make sure it's empty
+            std::unique_lock<std::mutex> lock(m_mutex);
+
+            while(m_queue.empty() && not m_shutdown) {
+                m_cv.wait(lock);
+            }
+            if(m_shutdown) return false;
+
+            std::swap(in_out, m_queue);
 
             return true;
         }

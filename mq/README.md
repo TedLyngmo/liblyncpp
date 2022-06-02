@@ -46,6 +46,6 @@ A timer queue provides constant time lookup of the first event to timeout, at th
 | `void shutdown()` | shutdown the queue, leaving unprocessed events in the queue |
 | `void clear()` | removes unprocessed events from the queue |
 | `void restart()` | restarts the queue with unprocessed events intact |
-| `bool operator!() const` | returns `true` if the `shutdown()` has been called, `false` otherwise |
+| `bool operator!() const` | returns `true` if `shutdown()` has been called, `false` otherwise |
 | `bool is_open() const` | returns `true` if `shutdown()` has _not_ been called, `false`otherwise |
 | `explicit operator bool() const` | returns the same as `is_open()` |
