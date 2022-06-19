@@ -38,3 +38,20 @@ template<class T, class Alloc, class Pred>
 unstable_erase_if(std::vector<T,Alloc>& c, Pred pred);
 ```
 Erases all elements that satisfy the predicate `pred`.
+
+---
+#### `lyn::alg::unstable_erase, lyn::alg::unstable_erase_if (std::basic_string)`
+```cpp
+template<class CharT, class Traits, class Alloc, class U>
+[[maybe_unused]] constexpr typename std::basic_string<T,Traits,Alloc>::size_type
+unstable_erase(std::basic_string<CharT,Traits,Alloc>& c, const U& value);
+```
+Erases all elements that compare equal to `value`.
+
+---
+```cpp
+template<class CharT, class Traits, class Alloc, class Pred>
+[[maybe_unused]] constexpr typename std::basic_string<CharT,Traits,Alloc>::size_type
+unstable_erase_if(std::basic_string<CharT,Traits,Alloc>& c, Pred pred);
+```
+Erases all elements that satisfy the predicate `pred`.
