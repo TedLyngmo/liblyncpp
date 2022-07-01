@@ -216,6 +216,9 @@ namespace mq {
             return true;
         }
 
+        duration get_now_delay() const { return m_now_delay; }
+        time_point get_seq() const { return m_seq; }
+
     private:
         queue_type m_queue{};
         mutable std::mutex m_mutex{};
