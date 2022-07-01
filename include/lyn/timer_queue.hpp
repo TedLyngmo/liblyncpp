@@ -42,11 +42,13 @@ For more information, please refer to <https://unlicense.org>
 namespace lyn {
 namespace mq {
 
-    template<class EventType = std::function<void()>, class Clock = std::chrono::steady_clock,
-             class TimePoint = std::chrono::time_point<Clock>>
-    class timer_queue {
+    template<class, class Clock = std::chrono::steady_clock, class TimePoint = std::chrono::time_point<Clock>>
+    class timer_queue;
+
+    template<class R, class... Args, class Clock, class TimePoint>
+    class timer_queue<R(Args...), Clock, TimePoint> {
     public:
-        using event_type = EventType;
+        using event_type = std::function<R(Args...)>;
         using clock_type = Clock;
         using duration = typename Clock::duration;
         using time_point = TimePoint;
@@ -93,21 +95,23 @@ namespace mq {
         bool operator!() const { return m_shutdown; }
         explicit operator bool() const { return !m_shutdown; }
 
-        // synchronize requires EventType to return `void` and be capable of captures.
-        template<class R, class Func>
-        R synchronize(Func&& func) {
-            std::promise<R> p;
-            std::future<R> f = p.get_future();
+        // Re is here the promised return value by added functor
+        // R is what's returned in the event loop
+        // Two overloads for void and non-void returns in the event loop
+        template<class Re, class Func, class LoopR = R, std::enable_if_t<std::is_same_v<LoopR, void>, int> = 0>
+        Re synchronize(Func&& func) {
+            std::promise<Re> p;
+            std::future<Re> f = p.get_future();
 
-            if constexpr(std::is_same_v<void, R>) {
-                emplace_do_urgently([&p, func = std::forward<Func>(func)](auto&&... args) {
+            if constexpr(std::is_same_v<void, Re>) {
+                emplace_do_urgently([&p, func = std::forward<Func>(func)](Args&&... args) {
                     func(std::forward<decltype(args)>(args)...);
                     p.set_value();
                 });
 
                 f.wait();
             } else {
-                emplace_do_urgently([&p, func = std::forward<Func>(func)](auto&&... args) {
+                emplace_do_urgently([&p, func = std::forward<Func>(func)](Args&&... args) {
                     p.set_value(func(std::forward<decltype(args)>(args)...));
                 });
 
@@ -116,32 +120,48 @@ namespace mq {
             }
         }
 
-        template<class... Args>
-        void emplace_do_in(duration dur, Args&&... args) {
+        template<class Re, class Func, class LoopR = R, std::enable_if_t<!std::is_same_v<LoopR, void>, int> = 0>
+        Re synchronize(Func&& func, LoopR event_loop_return_value = R{}) {
+            std::promise<Re> p;
+            std::future<Re> f = p.get_future();
+
+            if constexpr(std::is_same_v<void, Re>) {
+                emplace_do_urgently([&p, event_loop_return_value, func = std::forward<Func>(func)](Args&&... args) {
+                    func(std::forward<decltype(args)>(args)...);
+                    p.set_value();
+                    return event_loop_return_value;
+                });
+
+                f.wait();
+            } else {
+                emplace_do_urgently([&p, event_loop_return_value, func = std::forward<Func>(func)](Args&&... args) {
+                    p.set_value(func(std::forward<decltype(args)>(args)...));
+                    return event_loop_return_value;
+                });
+
+                f.wait();
+                return f.get();
+            }
+        }
+
+        void emplace_do_in(duration dur, event_type ev) {
             std::lock_guard<std::mutex> lock(m_mutex);
 
-            m_queue.emplace(TimedEvent{clock_type::now() + dur, std::forward<Args>(args)...});
+            m_queue.emplace(TimedEvent{clock_type::now() + dur, std::move(ev)});
             m_cv.notify_all();
         }
 
-        template<class TP, class... Args>
-        void emplace_do_at(TP&& tp, Args&&... args) {
+        void emplace_do_at(time_point tp, event_type ev) {
             std::lock_guard<std::mutex> lock(m_mutex);
 
-            m_queue.emplace(TimedEvent{std::forward<TP>(tp), std::forward<Args>(args)...});
+            m_queue.emplace(TimedEvent{std::forward<decltype(tp)>(tp), std::move(ev)});
             m_seq += std::chrono::nanoseconds(1);
             m_cv.notify_all();
         }
 
-        template<class... Args>
-        void emplace_do(Args&&... args) {
-            emplace_do_in(m_now_delay, std::forward<Args>(args)...);
-        }
+        void emplace_do(event_type ev) { emplace_do_in(m_now_delay, std::move(ev)); }
 
-        template<class... Args>
-        void emplace_do_urgently(Args&&... args) {
-            emplace_do_at(m_seq, std::forward<Args>(args)...);
-        }
+        void emplace_do_urgently(event_type ev) { emplace_do_at(m_seq, std::move(ev)); }
 
         bool wait_pop(event_type& ev) {
             std::unique_lock<std::mutex> lock(m_mutex);

@@ -5,7 +5,7 @@ Defined in header [`lyn/timer_queue.hpp`](../include/lyn/timer_queue.hpp).
 ---
 ```
 template<
-    class EventType = std::function<void()>,
+    class R, class... Args
     class Clock = std::chrono::steady_clock,
     class TimePoint = std::chrono::time_point<Clock>
 > class timer_queue;
@@ -18,16 +18,17 @@ A timer queue provides constant time lookup of the first event to timeout, at th
 
 |Parameter|Description|
 |-:|:-|
-| **EventType** | The type of events to store in the queue. `std::function<void()>` by default. |
+|         **R** | The return type of events to store in the queue.                              |
+|   **Args...** | The arguments to pass to events stored in the queue.                          |
 |     **Clock** | The clock type used to keep time. `std::chrono::steady_clock` by default.     |
 | **TimePoint** | `std::chrono::time_point<Clock>`                                              |
 
 |Member types| Definitions |
 |-:|:-|
-| `event_type` | EventType                         |
-| `clock_type` | Clock                             |
-| `duration`   | Clock::duration                   |
-| `time_point` | TimePoint                         |
+| `event_type` | The type you extract in the event loop |
+| `clock_type` | Clock                                  |
+| `duration`   | Clock::duration                        |
+| `time_point` | TimePoint                              |
 | `queue_type` | _unspecified_ - Has a member function `bool pop(event_type& ev)` - see `wait_pop_all` |
 
 ---

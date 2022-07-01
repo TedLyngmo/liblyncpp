@@ -6,7 +6,7 @@
 
 using namespace std::chrono_literals;
 
-using queue_1_t = lyn::mq::timer_queue<>;
+using queue_1_t = lyn::mq::timer_queue<void()>;
 
 void one(queue_1_t& q) {
     for(int i = 0; q; ++i) {
@@ -64,7 +64,7 @@ void test1() {
     threeth.join();
 }
 // -----
-using queue_2_t = lyn::mq::timer_queue<std::function<void(int, double)>>;
+using queue_2_t = lyn::mq::timer_queue<void(int, double)>;
 
 void sync(queue_2_t& q) {
     auto res = q.synchronize<double>([](int i, double d) -> double { return i + d; });
@@ -82,10 +82,10 @@ void test2() {
     syncth.join();
 }
 // -----
-class tester : public lyn::mq::timer_queue<> {
+class tester : public lyn::mq::timer_queue<void()> {
 public:
-    using lyn::mq::timer_queue<>::wait_pop_future;
-    using lyn::mq::timer_queue<>::wait_pop_all_future;
+    using lyn::mq::timer_queue<void()>::wait_pop_future;
+    using lyn::mq::timer_queue<void()>::wait_pop_all_future;
 };
 
 void test3() {
