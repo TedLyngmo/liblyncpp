@@ -12,10 +12,10 @@ CHEADERS = $(wildcard *.h)
 
 all : $(EXES)
 
-%: %.o ../include/lyn/timer_queue.hpp
+%: %.o
 	$(CXX) $(CXXVER) $(OPTS) -o $@ $< -pthread
 
-$(OBJS): %.o : %.cpp $(CPPHEADERS) Makefile
+$(OBJS): %.o : %.cpp $(CPPHEADERS) Makefile ../include/lyn/timer_queue.hpp
 	$(CXX) $(CXXVER) $(OPTS) -c -o $@ $< -pthread
 
 format:

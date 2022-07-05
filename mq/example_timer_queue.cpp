@@ -66,7 +66,7 @@ void test1() {
 // -----
 using queue_2_t = lyn::mq::timer_queue<void(int, double)>;
 
-void sync(queue_2_t& q) {
+void sync2(queue_2_t& q) {
     auto res = q.synchronize<double>([](int i, double d) -> double { return i + d; });
     q.shutdown();
     std::cout << "got " << res << " via synchronize\n";
@@ -74,7 +74,7 @@ void sync(queue_2_t& q) {
 
 void test2() {
     queue_2_t q;
-    auto syncth = std::thread(&sync, std::ref(q));
+    auto syncth = std::thread(&sync2, std::ref(q));
     queue_2_t::event_type ev;
     while(q.wait_pop(ev)) {
         ev(1, 3.14159);
@@ -115,10 +115,30 @@ void test4() {
         e();
     }
 }
+
+using queue_5_t = lyn::mq::timer_queue<bool(int)>;
+
+void sync5(queue_5_t& q) {
+    auto res = q.synchronize<int>([](int val) { return val*val; }, true);
+    q.shutdown();
+    std::cout << "test5 got " << res << " via synchronize\n";
+}
+
+void test5() {
+    queue_5_t q;
+    auto syncth = std::thread(&sync5, std::ref(q));
+    queue_5_t::event_type ev;
+    while(q.wait_pop(ev)) {
+        if(ev(10)) std::cout << "test5 event true\n";
+        else std::cout << "test5 event false\n";
+    }
+    syncth.join();
+}
 // -----
 int main() {
     test1();
     test2();
     test3();
     test4();
+    test5();
 }
