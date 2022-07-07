@@ -103,39 +103,43 @@ namespace mq {
             std::promise<Re> p;
             std::future<Re> f = p.get_future();
 
-            emplace_do_urgently([&p, func = std::forward<Func>(func)](Args&&... args) {
-                if constexpr(std::is_same_v<void, Re>) {
-                    func(std::forward<Args>(args)...);
+            if constexpr(std::is_same_v<void, Re>) {
+                emplace_do_urgently([&p, func = std::forward<Func>(func)](Args&&... args) {
+                    func(std::forward<decltype(args)>(args)...);
                     p.set_value();
-                } else {
-                    p.set_value(func(std::forward<Args>(args)...));
-                }
-            });
+                });
 
-            f.wait();
-            if constexpr(!std::is_same_v<void, Re>) {
+                f.wait();
+            } else {
+                emplace_do_urgently([&p, func = std::forward<Func>(func)](Args&&... args) {
+                    p.set_value(func(std::forward<decltype(args)>(args)...));
+                });
+
+                f.wait();
                 return f.get();
             }
         }
 
         template<class Re, class Func, class LoopR = R, std::enable_if_t<!std::is_same_v<LoopR, void>, int> = 0>
-        Re synchronize(Func&& func, LoopR&& event_loop_return_value = R{}) {
+        Re synchronize(Func&& func, LoopR event_loop_return_value = R{}) {
             std::promise<Re> p;
             std::future<Re> f = p.get_future();
 
-            emplace_do_urgently([&p, func = std::forward<Func>(func),
-                                 elrv = std::forward<LoopR>(event_loop_return_value)](Args&&... args) -> R {
-                func(std::forward<Args>(args)...);
-                if constexpr(std::is_same_v<void, Re>) {
+            if constexpr(std::is_same_v<void, Re>) {
+                emplace_do_urgently([&p, event_loop_return_value, func = std::forward<Func>(func)](Args&&... args) {
+                    func(std::forward<decltype(args)>(args)...);
                     p.set_value();
-                } else {
-                    p.set_value(func(std::forward<Args>(args)...));
-                }
-                return std::move(elrv);
-            });
+                    return event_loop_return_value;
+                });
 
-            f.wait();
-            if constexpr(!std::is_same_v<void, Re>) {
+                f.wait();
+            } else {
+                emplace_do_urgently([&p, event_loop_return_value, func = std::forward<Func>(func)](Args&&... args) {
+                    p.set_value(func(std::forward<decltype(args)>(args)...));
+                    return event_loop_return_value;
+                });
+
+                f.wait();
                 return f.get();
             }
         }
