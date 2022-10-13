@@ -56,8 +56,10 @@ namespace thread {
                 std::unique_lock<std::mutex> lock(m_mtx);
                 setup_in_thread(); // call setup function
                 m_terminated = false;
+                // Notifying while holding the lock is a pessimization but helgrind
+                // complains otherwise.
+                m_cv.notify_one();
             }
-            m_cv.notify_one();
             execute(); // run thread code in derived class
         }
     };
