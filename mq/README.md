@@ -40,7 +40,7 @@ A timer queue provides constant time lookup of the first event to timeout, at th
 |`~timer_queue()` | destroys the `timer_queue` |
 |`template<class... Args>`<br>`void emplace_do(Args&&... args)`| create an event in-place that is due after `now_delay` and sorts the underlying<br>container |
 |`template<class... Args>`<br>`void emplace_do_urgently(Args&&... args)`| create an event in-place and sorts the underlying container, placing the event<br>last among those to be extracted immediately |
-|`template<class TP, class... Args>`<br>`void emplace_do_at(TP&& tp, Args&&... args)` | create an event in-place that is due at at the specified `time_point` and sorts<br>the underlying container, placing the event in `time_point` order |
+|`template<class TP, class... Args>`<br>`void emplace_do_at(TP&& tp, Args&&... args)` | create an event in-place that is due at the specified `time_point` and sorts<br>the underlying container, placing the event in `time_point` order |
 |`template<class... Args>`<br>`void emplace_do_in(duration dur, Args&&... args)` | create an event in-place that is due after the duration `dur` and sorts the<br>underlying container, placing the event in `time_point` order |
 |`bool wait_pop(event_type& ev)` | wait until an event is due and populates `ev`. Returns `true` if an event was<br>successfully extracted or `false` if the queue was shutdown. |
 |`bool wait_pop_all(queue_type& in_out)` | wait until an event is due and extracts all events that are due.<br>Returns `true` unless the queue was shutdown in which case it returns `false`.|
