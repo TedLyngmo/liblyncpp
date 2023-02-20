@@ -1,11 +1,9 @@
 /*
 This is free and unencumbered software released into the public domain.
-
 Anyone is free to copy, modify, publish, use, compile, sell, or
 distribute this software, either in source code form or as a compiled
 binary, for any purpose, commercial or non-commercial, and by any
 means.
-
 In jurisdictions that recognize copyright laws, the author or authors
 of this software dedicate any and all copyright interest in the
 software to the public domain. We make this dedication for the benefit
@@ -13,7 +11,6 @@ of the public at large and to the detriment of our heirs and
 successors. We intend this dedication to be an overt act of
 relinquishment in perpetuity of all present and future rights to this
 software under copyright law.
-
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
 EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
 MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
@@ -21,7 +18,6 @@ IN NO EVENT SHALL THE AUTHORS BE LIABLE FOR ANY CLAIM, DAMAGES OR
 OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
 ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 OTHER DEALINGS IN THE SOFTWARE.
-
 For more information, please refer to <https://unlicense.org>
 */
 
@@ -79,16 +75,34 @@ namespace mq {
         timer_queue(timer_queue&&) = delete;
         timer_queue& operator=(const timer_queue&) = delete;
         timer_queue& operator=(timer_queue&&) = delete;
-        ~timer_queue() { shutdown(); }
+        ~timer_queue() {
+            shutdown();
+            std::unique_lock<std::mutex> lock(m_mutex);
+            while(m_users) m_cv.wait(lock);
+        }
+
+        timer_queue& reg() {
+            std::lock_guard<std::mutex> lock(m_mutex);
+            ++m_users;
+            return *this;
+        }
+
+        void unreg() {
+            std::lock_guard<std::mutex> lock(m_mutex);
+            --m_users;
+            m_cv.notify_all();
+        }
 
         void shutdown() {
             m_shutdown = true;
             m_cv.notify_all();
         }
+
         void clear() {
             std::lock_guard<std::mutex> lock(m_mutex);
             m_queue = queue_type{};
         }
+
         void restart() { m_shutdown = false; }
 
         bool is_open() const { return !m_shutdown; }
@@ -253,6 +267,29 @@ namespace mq {
         // to extend the queue with adding a bunch of elements at the same time and to guarantee them to be extracted
         // together in the exact order they were put in.
         time_point m_seq{};
+        unsigned m_users{};
     };
+
+    template<class queue_type>
+    class timer_queue_registrator {
+    public:
+        timer_queue_registrator(queue_type& tq) : m_tq(&static_cast<queue_type&>(tq.reg())) {}
+        timer_queue_registrator(std::reference_wrapper<queue_type> tq) : timer_queue_registrator(tq.get()) {}
+
+        timer_queue_registrator(const timer_queue_registrator&) = delete;
+        timer_queue_registrator(timer_queue_registrator&& other) noexcept : m_tq{std::exchange(other.m_tq, nullptr)} {}
+        timer_queue_registrator& operator=(const timer_queue_registrator&) = delete;
+        timer_queue_registrator& operator=(timer_queue_registrator&& other) noexcept {
+            std::swap(m_tq, other.m_tq);
+            return *this;
+        }
+        ~timer_queue_registrator() { if(m_tq) m_tq->unreg(); }
+
+        queue_type& queue() { return *m_tq; }
+
+    private:
+        queue_type* m_tq;
+    };
+
 } // namespace mq
 } // namespace lyn
