@@ -30,6 +30,7 @@ For more information, please refer to <https://unlicense.org>
 #include <condition_variable>
 #include <functional>
 #include <future>
+#include <iterator>
 #include <mutex>
 #include <queue>
 #include <type_traits>
@@ -48,6 +49,8 @@ namespace mq {
         using clock_type = Clock;
         using duration = typename Clock::duration;
         using time_point = TimePoint;
+        using schedule_at_type = std::pair<time_point, event_type>;
+        using schedule_in_type = std::pair<duration, event_type>;
 
     private:
         struct TimedEvent {
@@ -172,14 +175,56 @@ namespace mq {
         void emplace_do_at(time_point tp, event_type ev) {
             std::lock_guard<std::mutex> lock(m_mutex);
 
-            m_queue.emplace(TimedEvent{std::forward<decltype(tp)>(tp), std::move(ev)});
-            m_seq += std::chrono::nanoseconds(1);
+            m_queue.emplace(TimedEvent{tp, std::move(ev)});
+            m_seq += std::chrono::nanoseconds(1); // used by emplace_do_urgently
             m_cv.notify_all();
         }
 
         void emplace_do(event_type ev) { emplace_do_in(m_now_delay, std::move(ev)); }
 
         void emplace_do_urgently(event_type ev) { emplace_do_at(m_seq, std::move(ev)); }
+
+        // Add a bunch of events using iterators. Events will be processed in the order they are added.
+        template<class Iter>
+        std::enable_if_t<std::is_same_v<event_type, typename std::iterator_traits<Iter>::value_type>> emplace_schedule(
+            Iter first, Iter last) {
+            auto T0 = clock_type::now() + m_now_delay;
+            std::chrono::nanoseconds event_order{0};
+
+            std::lock_guard<std::mutex> lock(m_mutex);
+            for(; first != last; ++first) {
+                m_queue.emplace(TimedEvent{T0 + event_order, *first});
+                event_order += std::chrono::nanoseconds(1);
+            }
+            m_cv.notify_all();
+        }
+
+        // Add a bunch of events with pre-calculated time_points using iterators.
+        template<class Iter>
+        std::enable_if_t<std::is_same_v<schedule_at_type, typename std::iterator_traits<Iter>::value_type>>
+        emplace_schedule(Iter first, Iter last) {
+            std::lock_guard<std::mutex> lock(m_mutex);
+            for(; first != last; ++first) {
+                auto&& [tp, ev] = *first;
+                m_queue.emplace(TimedEvent{tp, ev});
+            }
+            m_cv.notify_all();
+        }
+
+        // Add a bunch of events with durations in relation to the supplied time_point T0 using iterators.
+        template<class Iter>
+        std::enable_if_t<std::is_same_v<schedule_in_type, typename std::iterator_traits<Iter>::value_type>>
+        emplace_schedule(time_point T0, Iter first, Iter last) {
+            std::vector<schedule_at_type> atev;
+            if constexpr(std::is_base_of_v<std::random_access_iterator_tag,
+                                           std::iterator_traits<Iter>::iterator_category>) {
+                atev.reserve(std::distance(first, last));
+            }
+            std::transform(first, last, std::back_inserter(atev), [&T0](auto&& de) {
+                return schedule_at_type{T0 + de.first, de.second};
+            });
+            emplace_schedule(std::move_iterator(atev.begin()), std::move_iterator(atev.end()));
+        }
 
         bool wait_pop(event_type& ev) {
             std::unique_lock<std::mutex> lock(m_mutex);
@@ -273,6 +318,7 @@ namespace mq {
     template<class queue_type>
     class timer_queue_registrator {
     public:
+        using event_type = typename queue_type::event_type;
         timer_queue_registrator(queue_type& tq) : m_tq(&static_cast<queue_type&>(tq.reg())) {}
         timer_queue_registrator(std::reference_wrapper<queue_type> tq) : timer_queue_registrator(tq.get()) {}
 
@@ -283,7 +329,9 @@ namespace mq {
             std::swap(m_tq, other.m_tq);
             return *this;
         }
-        ~timer_queue_registrator() { if(m_tq) m_tq->unreg(); }
+        ~timer_queue_registrator() {
+            if(m_tq) m_tq->unreg();
+        }
 
         queue_type& queue() { return *m_tq; }
 
