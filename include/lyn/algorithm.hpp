@@ -1,6 +1,9 @@
 #pragma once
+#include <algorithm>
+#include <iterator>
 #include <string>
 #include <utility>
+#include <type_traits>
 #include <vector>
 
 namespace lyn {
@@ -12,19 +15,23 @@ namespace alg {
     }
     // -------------------------------------------------------------------------
     template<class ForwardIt, class UnaryPredicate>
-    constexpr ForwardIt unstable_remove_if(ForwardIt first, ForwardIt last, UnaryPredicate p) {
-        for(; first != last; ++first) {
-            if(p(*first)) { // found one that should be removed
+    constexpr ForwardIt unstable_remove_if(ForwardIt first, ForwardIt last, UnaryPredicate&& p) {
+        if constexpr (std::is_base_of_v<std::bidirectional_iterator_tag, typename std::iterator_traits<ForwardIt>::iterator_category>) {
+            for(; first != last; ++first) {
+                if(p(*first)) { // found one that should be removed
 
-                // find a "last" that should NOT be removed
-                while(true) {
-                    if(--last == first) return last;
-                    if(not p(*last)) break; // should not be removed
+                    // find a "last" that should NOT be removed
+                    while(true) {
+                        if(--last == first) return last;
+                        if(not p(*last)) break; // should not be removed
+                    }
+                    *first = std::move(*last); // move last to first
                 }
-                *first = std::move(*last); // move last to first
             }
+            return last;
+        } else {
+            return std::remove_if(first, last, std::forward<UnaryPredicate>(p));
         }
-        return last;
     }
     // -------------------------------------------------------------------------
     // Erase-Remove idiom algorithms
